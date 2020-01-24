@@ -99,21 +99,22 @@ else
     ptrTabPixelVideoToGray();
     }
 
-//Convolution v.2
-//	{
-//	dim3 dg = dim3(14, 1, 1);
-//	dim3 db = dim3(1024, 1, 1);
-//	kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
-//	}
+//////Convolution v.2
+	{
+	dim3 dg = dim3(14, 1, 1);
+	dim3 db = dim3(1024, 1, 1);
+	//kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabKernelConvolution);
+	kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+	}
 
-//Convolution v.3
-    {
-    dim3 dg = dim3(14, 1, 1);
-    dim3 db = dim3(1024, 1, 1);
-    uploadImageAsTexture(tabGMImageGris, w, h);
-    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-    unloadImageTexture();
-    }
+////Convolution v.3
+//    {
+//    dim3 dg = dim3(14, 1, 1);
+//    dim3 db = dim3(1024, 1, 1);
+//    uploadImageAsTexture(tabGMImageGris, w, h);
+//    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
+//    unloadImageTexture();
+//    }
 
 //MinMax
     {
@@ -183,7 +184,7 @@ Device::memcpyHToD(tabGMImageGris, ptrTabPixelGray, sizeof(uchar) * w * h);
 void Convolution::openMPConvolution(uchar* tabInput, uchar* tabOutput, int w, int h, int radius, float* tabKernel)
 {
     int s = OmpTools::getTid();
-    	while(s < w*h)
+    while(s < w*h)
     	{
     	    int i = 0;
     	    int j = 0;
@@ -218,7 +219,6 @@ void Convolution::openMPConvolution(uchar* tabInput, uchar* tabOutput, int w, in
     		}
 
     	    tabOutput[s] =(int) sum;
-    	    s+=Indice2D::nbThreadLocal();
+    	    //s+=Indice2D::nbThreadLocal();
     	}
-        }
 }
