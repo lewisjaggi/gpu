@@ -34,7 +34,7 @@ class Convolution: public Animable_I<uchar>
 	virtual void animationStep();
 
 	void ptrTabPixelVideoToGray();
-	void openMPConvolution(uchar* tabInput, uchar* tabOutput, int w, int h, int radius, float* tabKernel);
+	void openMPConvolution();
 
 	/*--------------------------------------*\
 	 |*		Attributs		*|
@@ -45,9 +45,11 @@ class Convolution: public Animable_I<uchar>
 	string nameVideo;
 	uint w;
 	uint h;
+	uint radius;
 	int kernelSize;
 	float* tabKernelConvolution;
 	bool grayOnDevice;
+	bool convolutionOnDevice;
 
 	//Tools
 	uchar4* tabGMImageCouleur;
@@ -65,5 +67,5 @@ class Convolution: public Animable_I<uchar>
 	uchar* ptrTabPixelGray;
 
 	//Output
-	uchar* tabImageOutput;
+	uchar* tabImageConvolutionOutput;
     };
