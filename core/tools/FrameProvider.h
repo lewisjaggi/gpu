@@ -8,12 +8,15 @@
 #include "Version.h"
 
 
+
 using cv::Mat;
 using std::string;
 
-#ifndef Fifo
-#define Fifo boost::lockfree::spsc_queue<uchar4>
-#endif
+
+#define Fifo boost::lockfree::spsc_queue<uchar4*, boost::lockfree::capacity<1024> >
+
+
+
 
 class FrameProvider
     {
@@ -22,9 +25,12 @@ class FrameProvider
 	virtual ~FrameProvider(void);
 
 	uchar4* getFrame();
+	void pushFrame();
+	uchar4* loadFrame();
+	void start();
 
     private:
-	uchar4* loadFrame();
+
 	/*--------------------------------------*\
 	 |*		Attributs		*|
 	 \*-------------------------------------*/
@@ -38,12 +44,13 @@ class FrameProvider
 	Mat matRGBA;
 	CVCaptureVideo capture;
 	Version version;
+	MyRunnable runnable;
 
 	// full video
 	const static int FRAME_NUMBER = 800; //51200
 	uchar4* fullVideo[FRAME_NUMBER];
 	int currentFrame = 0;
 	bool videoLoaded = false;
-	Fifo fifo();
+	Fifo fifo;
 
     };

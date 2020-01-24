@@ -2,7 +2,7 @@
 
 #include <assert.h>
 #include <iostream>
-
+#include <boost/lockfree/spsc_queue.hpp>
 #include "KernelGrisMath.h"
 
 #include "OpencvTools_GPU.h"
@@ -37,6 +37,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
 		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version), frameProvider(w, h, nameVideo, version)
 
     {
+    frameProvider.start();
     assert(kernelSize % 2 == 1);
 
     //Paramètres

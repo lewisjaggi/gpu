@@ -9,9 +9,14 @@
 #include "Device.h"
 
 
+
+using std::ref;
+
+
 using std::cout;
 using std::cerr;
 using std::endl;
+
 
 
 FrameProvider::FrameProvider(uint w, uint h, string nameVideo, Version version) :
@@ -30,7 +35,6 @@ FrameProvider::FrameProvider(uint w, uint h, string nameVideo, Version version) 
 	assert(capture.getW() == w && capture.getH() == h);
 	}
 
-
 	if (version == Version::FULL_LOAD)
 	    {
 	    for (int i = 0; i < FRAME_NUMBER; i++)
@@ -41,19 +45,21 @@ FrameProvider::FrameProvider(uint w, uint h, string nameVideo, Version version) 
 
 	if (version == Version::PROD_CONS)
 	    {
-	    #pragma omp parallel sections
-		{
-		#pragma omp section
-		    {
-		    while(true)
-			{
-			uchar4* newFrame = loadFrame();
-			fifo.push(newFrame);
-			}
-		    }
 
-		}
+	     runnable =  MyRunnable(&fifo, this);
+
+	    //thread threadRunnable1(runnable, &fifo, this);
+//	    #pragma omp parallel
+//		{
+//		#pragma omp single
+//		    {
+//		    #pragma omp task
+//			pushFrame();
+//		    }
+//
+//		}
 	    }
+	cout << "out";
 
     }
 
@@ -69,7 +75,7 @@ uchar4* FrameProvider::loadFrame()
     {
     //video
     	{
-    	Mat matBGR = capture.provideBGR();
+    	Mat matBGR = this->capture.provideBGR();
 
     	OpencvTools_GPU::switchRB(this->matRGBA, matBGR);
 
@@ -96,7 +102,7 @@ uchar4* FrameProvider::getFrame()
 	else if (version == Version::PROD_CONS)
 	    {
 	    uchar4* newImage;
-	    while(fifo.pop(newImage))
+	    while(!fifo.pop(newImage))
 		{
 
 		}
@@ -109,5 +115,8 @@ uchar4* FrameProvider::getFrame()
 	    }
     }
 
-
+void FrameProvider::start()
+    {
+    std::thread threadRunnable1(&MyRunnable::run, &runnable);
+    }
 
