@@ -44,6 +44,8 @@ class Convolution: public Animable_I<uchar>
 
 	void ptrTabPixelVideoToGray();
 	void openMPConvolution();
+	void openMPMinMax();
+	void amplificationOpenMP();
 
 	/*--------------------------------------*\
 	 |*		Attributs		*|
@@ -78,6 +80,7 @@ class Convolution: public Animable_I<uchar>
 	//Output
 
 	uchar* tabImageConvolutionOutput;
+	uchar* tabMinMaxOmp;
 
 
 	Version version;

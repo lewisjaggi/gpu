@@ -9,6 +9,8 @@
 #include "IndiceTools_CPU.h"
 #include "OmpTools.h"
 #include "Device.h"
+#include "Interval_CPU.h"
+#include "Calibreur_CPU.h"
 
 using std::cout;
 using std::cerr;
@@ -61,6 +63,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
 
     ptrTabPixelGray = new uchar[sizeImage];
     tabImageConvolutionOutput = new uchar[sizeImage];
+    tabMinMaxOmp = new uchar[2];
 
     //video
 	{
@@ -140,8 +143,8 @@ else
 //OpenMP Convolution
     {
     openMPConvolution();
-    Device::memclear(tabGMConvolutionOutput, sizeof(uchar) * w * h);
-    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+//    Device::memclear(tabGMConvolutionOutput, sizeof(uchar) * w * h);
+//    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
     }
 }
 
@@ -150,21 +153,27 @@ else
 
 //MinMax
     {
-    size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
-    kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
-    uchar *minMax = new uchar[2];
-    Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
+    openMPMinMax();
+//    Device::memcpyHToD(tabGMMinMax, tabMinMaxOmp, sizeof(uchar) * 2);
+//    size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
+//    kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
+//    uchar *minMax = new uchar[2];
+//    Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
     }
 
 //Amplification
     {
-    dim3 dg = dim3(48, 1, 1);
-    dim3 db = dim3(576, 1, 1);
-kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
+    amplificationOpenMP();
+//    dim3 dg = dim3(48, 1, 1);
+//    dim3 db = dim3(576, 1, 1);
+//kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
 }
 
     // Copy the final output to ptrDevPixel
-Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
+    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+    Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
+
+    //ptrDevPixels= tabImageConvolutionOutput;
 }
 
 void Convolution::animationStep()
@@ -258,3 +267,63 @@ s += NB_THREAD;
 }
 }
 }
+
+void Convolution::openMPMinMax()
+    {
+    int nbThread = OmpTools::setAndGetNaturalGranularity();
+    uchar* tabMinMax = new uchar[nbThread * 2];
+#pragma omp parallel
+    {
+	int TID = OmpTools::getTid();
+	tabMinMax[TID] = tabImageConvolutionOutput[TID];
+	tabMinMax[TID + nbThread] = tabImageConvolutionOutput[TID];
+	int s = TID +nbThread;
+	while(s<w*h)
+	    {
+		bool smaller = tabImageConvolutionOutput[s] < tabMinMax[TID];
+		tabMinMax[TID] = tabImageConvolutionOutput[s]*(int)smaller + tabMinMax[TID]*((int)(!smaller));
+
+		bool greater = tabImageConvolutionOutput[s] > tabMinMax[TID + nbThread];
+		tabMinMax[TID + nbThread] = tabImageConvolutionOutput[s]*(int)greater + tabMinMax[TID +nbThread]*((int)(!greater));
+	    s+= nbThread;
+	    }
+    }
+
+for(int i = 1;i < nbThread; i++)
+    {
+    tabMinMax[0] = tabMinMax[i] < tabMinMax[0] ? tabMinMax[i] : tabMinMax[0];
+    tabMinMax[nbThread] = tabMinMax[i +nbThread] > tabMinMax[nbThread] ? tabMinMax[i+nbThread] : tabMinMax[nbThread];
+    }
+tabMinMaxOmp[0] = tabMinMax[0];
+tabMinMaxOmp[1] = tabMinMax[nbThread];
+    }
+
+void Convolution::amplificationOpenMP()
+    {
+    const int NB_THREAD = OmpTools::setAndGetNaturalGranularity();
+    const int WH = w * h;
+    const uchar min = tabMinMaxOmp[0];
+    const uchar max = tabMinMaxOmp[1];
+    cpu::Interval<uchar> input(min,max);
+    cpu::Interval<uchar> output((uchar)0,(uchar)255);
+    cpu::Calibreur<uchar> calibreur(input, output);
+#pragma omp parallel
+    {
+	const int TID = OmpTools::getTid();
+
+            //Calibreur<uchar> calibreur(min, max, (uchar)0, (uchar)255);
+            int s = TID;
+            while (s < WH)
+        	{
+        	if (min == max)
+        	    tabImageConvolutionOutput[s] = (uchar)127;
+        	else
+        	    {
+        	    calibreur.calibrer(&tabImageConvolutionOutput[s]);
+        	    }
+        	s += NB_THREAD;
+        	}
+
+    }
+
+    }
