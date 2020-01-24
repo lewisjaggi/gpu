@@ -4,6 +4,7 @@
 #include "MathTools.h"
 #include "Grid.h"
 #include "NoyauCreator.h"
+#include "Version.h"
 
 /*----------------------------------------------------------------------*\
  |*			Declaration 					*|

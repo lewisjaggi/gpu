@@ -6,21 +6,13 @@
 
 #include "CVCaptureVideo.h"
 #include "Animable_I_GPU.h"
+#include "Version.h"
+#include "FrameProvider.h"
 
 using namespace gpu;
 
 using cv::Mat;
 using std::string;
-
-enum Version
-    {
-    BASIC,
-    CM,
-    TEXTURE,
-    OMP,
-    FULL_LOAD,
-    PROD_CONS,
-    };
 
 class Convolution: public Animable_I<uchar>
     {
@@ -50,8 +42,6 @@ class Convolution: public Animable_I<uchar>
 	 \*-------------------------------------*/
 
     private:
-	//Input
-	string nameVideo;
 	uint w;
 	uint h;
 	uint radius;
@@ -69,9 +59,7 @@ class Convolution: public Animable_I<uchar>
 	uchar* tabGMConvolutionOutput;
 	float* tabGMKernelConvolution;
 
-	Mat matRGBA;
 	size_t sizeImage;
-	CVCaptureVideo capture;
 	uchar4* ptrTabPixelVideo;
 	uchar* ptrTabPixelGray;
 
@@ -79,7 +67,8 @@ class Convolution: public Animable_I<uchar>
 
 	uchar* tabImageConvolutionOutput;
 
-
 	Version version;
+
+	FrameProvider frameProvider;
 
     };

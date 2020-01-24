@@ -31,15 +31,15 @@ extern __host__ void unloadImageTexture();
 
 //TODO Choose where to use NoyauCreator, passé depuis le provider ou directement dans cette class!
 Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, float kernel[], int kernelSize, Version version) :
-	Animable_I<uchar>(grid, w, h, "Convolution_GRAY_uchar"), nameVideo(nameVideo), capture(nameVideo), matRGBA(h, w, CV_8UC1), tabKernelConvolution(kernel), kernelSize(
-		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version)
+	Animable_I<uchar>(grid, w, h, "Convolution_GRAY_uchar"), tabKernelConvolution(kernel), kernelSize(
+		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version), frameProvider(w, h, nameVideo, version)
 
     {
     assert(kernelSize % 2 == 1);
 
     //Paramètres
-    this->grayOnDevice = false;
-    this->convolutionOnDevice = false;
+    this->grayOnDevice = true;
+    this->convolutionOnDevice = true;
     this->kernelSize = 9;
 
     int nbPixels = w * h;
@@ -63,16 +63,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     tabImageConvolutionOutput = new uchar[sizeImage];
 
     //video
-	{
-	bool isOk = capture.start();
-	if (!isOk)
-	    {
-	    cerr << "[ConvolutionVideo] : failed to open : " << nameVideo << endl;
-	    exit (EXIT_FAILURE);
-	    }
-	assert(capture.getW() == w && capture.getH() == h);
-	animationStep(); // pour forcer la premiere capture et remplissage ptrTabPixelVideo
-	}
+    this->ptrTabPixelVideo = frameProvider.getFrame();
     }
 
 Convolution::~Convolution()
@@ -115,7 +106,7 @@ if (convolutionOnDevice)
         }
 
     //Convolution CM
-    else if (version == Version::CM || version == Version::CM)
+    else if (version == Version::CM || version == Version::FULL_LOAD)
         {
         dim3 dg = dim3(14, 1, 1);
         dim3 db = dim3(1024, 1, 1);
@@ -172,12 +163,9 @@ void Convolution::animationStep()
 t++;
 
     //video
-{
-Mat matBGR = capture.provideBGR();
-
-OpencvTools_GPU::switchRB(this->matRGBA, matBGR);
-this->ptrTabPixelVideo = OpencvTools_GPU::castToUchar4(matRGBA);
-}
+    {
+    this->ptrTabPixelVideo = frameProvider.getFrame();
+    }
 }
 
 void Convolution::ptrTabPixelVideoToGray()
