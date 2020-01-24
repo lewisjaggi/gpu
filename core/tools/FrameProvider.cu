@@ -1,13 +1,13 @@
 #include <assert.h>
 #include <iostream>
 
-#include <boost/lockfree/spsc_queue.hpp>
 #include "OmpTools.h"
 #include "OpencvTools_GPU.h"
 #include "FrameProvider.h"
 #include <thread>
 #include <chrono>
 #include "Device.h"
+
 
 using std::cout;
 using std::cerr;
@@ -37,7 +37,22 @@ FrameProvider::FrameProvider(uint w, uint h, string nameVideo, Version version) 
 		{
 		fullVideo[i] = loadFrame();
 		}
+	    }
 
+	if (version == Version::PROD_CONS)
+	    {
+	    #pragma omp parallel sections
+		{
+		#pragma omp section
+		    {
+		    while(true)
+			{
+			uchar4* newFrame = loadFrame();
+			fifo.push(newFrame);
+			}
+		    }
+
+		}
 	    }
 
     }
@@ -77,6 +92,16 @@ uchar4* FrameProvider::getFrame()
 		currentFrame = 0;
 		}
 	    return frame;
+	    }
+	else if (version == Version::PROD_CONS)
+	    {
+	    uchar4* newImage;
+	    while(fifo.pop(newImage))
+		{
+
+		}
+	    return newImage;
+
 	    }
 	else
 	    {

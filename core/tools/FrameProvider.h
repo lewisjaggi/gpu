@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <boost/lockfree/spsc_queue.hpp>
 #include "cudaTools.h"
 #include "CVCaptureVideo.h"
 #include "Version.h"
@@ -10,6 +11,9 @@
 using cv::Mat;
 using std::string;
 
+#ifndef Fifo
+#define Fifo boost::lockfree::spsc_queue<uchar4>
+#endif
 
 class FrameProvider
     {
@@ -40,5 +44,6 @@ class FrameProvider
 	uchar4* fullVideo[FRAME_NUMBER];
 	int currentFrame = 0;
 	bool videoLoaded = false;
+	Fifo fifo();
 
     };

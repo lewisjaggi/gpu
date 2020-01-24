@@ -54,7 +54,7 @@ Animable_I<uchar>* ConvolutionProvider::createAnimable()
 
     NoyauCreator* noyauCreator = new NoyauCreator();
 
-    return new Convolution(grid, w, h, videoName, noyauCreator->getTabNoyau(), 9, Version::CM);//TODO: Add kernel convolution
+    return new Convolution(grid, w, h, videoName, noyauCreator->getTabNoyau(), 9, Version::PROD_CONS);//TODO: Add kernel convolution
     }
 
 /**
