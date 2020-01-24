@@ -100,21 +100,21 @@ else
     }
 
 //////Convolution v.2
-	{
-	dim3 dg = dim3(14, 1, 1);
-	dim3 db = dim3(1024, 1, 1);
-	//kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabKernelConvolution);
-	kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
-	}
+//	{
+//	dim3 dg = dim3(14, 1, 1);
+//	dim3 db = dim3(1024, 1, 1);
+//	kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
+//	//kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+//	}
 
 ////Convolution v.3
-//    {
-//    dim3 dg = dim3(14, 1, 1);
-//    dim3 db = dim3(1024, 1, 1);
-//    uploadImageAsTexture(tabGMImageGris, w, h);
-//    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-//    unloadImageTexture();
-//    }
+    {
+    dim3 dg = dim3(14, 1, 1);
+    dim3 db = dim3(1024, 1, 1);
+    uploadImageAsTexture(tabGMImageGris, w, h);
+    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
+    unloadImageTexture();
+    }
 
 //MinMax
     {

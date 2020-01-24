@@ -123,49 +123,49 @@ __global__ void kernelConvolutionV1(uchar* tabGMInput, uchar* tabGMOutput, int w
 		}
 
 	    tabGMOutput[s] =(int) sum;
-	    s+=Indice2D::nbThreadLocal();
+	    s+=Indice2D::nbThread();
 	}
     }
 
 __global__ void kernelConvolutionV2(uchar* tabGMInput, uchar* tabGMOutput, int w, int h, int radius, float* tabGMkernel)
     {
-	int s = Indice2D::tid();
-	while(s < w*h)
-	{
-	    int i = 0;
-	    int j = 0;
-	    int u = 0;
-	    int v = 0;
-	    IndiceTools::toIJ(s, w, &u, &v);
+    int s = Indice2D::tid();
+    	while(s < w*h)
+    	{
+    	    int i = 0;
+    	    int j = 0;
+    	    int u = 0;
+    	    int v = 0;
+    	    IndiceTools::toIJ(s, w, &u, &v);
 
-	    float sum = 0;
-	    int sizeLine = 2*radius + 1;
-	    while(i < sizeLine)
-		{
-		int x = (v-radius+i);
-		while(j < sizeLine)
-		    {
-		    int y = u-radius+j;
-		    if(!(x < 0 || y < 0 || x >= w || y >= h))
-			{
-			sum += tabGMkernel[j * sizeLine + i] * tabGMInput[w * y + x];
-			}
-		    ++j;
-		    }
-		++i;
-		j = 0;
-		}
-	    if(sum<0)
-		{
-		sum=0;
-		}
-	    else if(sum > 255)
-		{
-		sum = 255;
-		}
-	    tabGMOutput[s] =(int) sum;
-	    s+=Indice2D::nbThreadLocal();
-	}
+    	    float sum = 0;
+    	    int sizeLine = 2*radius + 1;
+    	    while(i < sizeLine)
+    		{
+    		int x = (v-radius+i);
+    		while(j < sizeLine)
+    		    {
+    		    int y = u-radius+j;
+    		    if(!(x < 0 || y < 0 || x >= w || y >= h))
+    			{
+    			sum += tabGMkernel[j * sizeLine + i] * tabGMInput[w * y + x];
+    			}
+    		    ++j;
+    		    }
+    		++i;
+    		j = 0;
+    		}
+    	    if(sum<0)
+    		{
+    		sum=0;
+    		}
+    	    else if(sum > 255)
+    		{
+    		sum = 255;
+    		}
+    	    tabGMOutput[s] =(int) sum;
+    	    s+=Indice2D::nbThread();
+    	}
     }
 
 __global__ void kernelConvolutionCM(uchar* tabGMInput, uchar* tabGMOutput, int w, int h, int radius)
@@ -205,7 +205,7 @@ __global__ void kernelConvolutionCM(uchar* tabGMInput, uchar* tabGMOutput, int w
 		sum = 255;
 		}
 	    tabGMOutput[s] =(int) sum;
-	    s+=Indice2D::nbThreadLocal();
+	    s+=Indice2D::nbThread();
 	}
     }
 
