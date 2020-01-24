@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <iostream>
 
-
+#include <boost/lockfree/spsc_queue.hpp>
 #include "OmpTools.h"
 #include "OpencvTools_GPU.h"
 #include "FrameProvider.h"

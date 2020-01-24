@@ -40,8 +40,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     assert(kernelSize % 2 == 1);
 
     //Paramètres
-    this->grayOnDevice = true;
-    this->convolutionOnDevice = true;
+    this->onDevice = false;
     this->kernelSize = 9;
 
     int nbPixels = w * h;
@@ -86,82 +85,78 @@ Convolution::~Convolution()
 void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath &domaineMath)
     {
     //Gris
-    if (grayOnDevice)
+    if (onDevice)
 	{
 	Device::memcpyHToD(tabGMImageCouleur, ptrTabPixelVideo, sizeImage);
     kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
+
+    if (version == Version::BASIC)
+            {
+            dim3 dg = dim3(14, 1, 1);
+            dim3 db = dim3(1024, 1, 1);
+            kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
+            //kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+            }
+
+        //Convolution CM
+        else if (version == Version::CM || version == Version::FULL_LOAD)
+            {
+            dim3 dg = dim3(14, 1, 1);
+            dim3 db = dim3(1024, 1, 1);
+            kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+
+            }
+
+        //Convolution texture
+        else if (version == Version::TEXTURE)
+            {
+            dim3 dg = dim3(14, 1, 1);
+            dim3 db = dim3(1024, 1, 1);
+            uploadImageAsTexture(tabGMImageGris, w, h);
+            kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
+            unloadImageTexture();
+            }
+
+    //MinMax
+        {
+
+        size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
+        kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
+        uchar *minMax = new uchar[2];
+        Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
+        }
+        //Amplification
+            {
+            dim3 dg = dim3(48, 1, 1);
+            dim3 db = dim3(576, 1, 1);
+        kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
+        }
+
     }
 else
     {
     ptrTabPixelVideoToGray();
-//    Device::memclear(tabGMImageGris, sizeof(uchar) * w * h);
-//    Device::memcpyHToD(tabGMImageGris, ptrTabPixelGray, sizeof(uchar) * w * h);
-    }
-if (convolutionOnDevice)
-    {
-
-    if (version == Version::BASIC)
+    //OpenMP Convolution
         {
-        dim3 dg = dim3(14, 1, 1);
-        dim3 db = dim3(1024, 1, 1);
-        kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
-        //kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+        openMPConvolution();
         }
 
-    //Convolution CM
-    else if (version == Version::CM || version == Version::FULL_LOAD)
-        {
-        dim3 dg = dim3(14, 1, 1);
-        dim3 db = dim3(1024, 1, 1);
-        kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
-
+    //OpenMP Convolution
+	{
+	openMPConvolution();
+	}
+	//MinMax
+	{
+	openMPMinMax();
         }
+    //Amplification
+	{
+	amplificationOpenMP();
+	}
 
-    //Convolution texture
-    else if (version == Version::TEXTURE)
-        {
-        dim3 dg = dim3(14, 1, 1);
-        dim3 db = dim3(1024, 1, 1);
-        uploadImageAsTexture(tabGMImageGris, w, h);
-        kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-        unloadImageTexture();
-        }
-
-
-}
-else
-{
-//OpenMP Convolution
-    {
-    openMPConvolution();
-//    Device::memclear(tabGMConvolutionOutput, sizeof(uchar) * w * h);
-//    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+                // Copy the final output to ptrDevPixel
+                Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
     }
-}
-
-//Convolution CM
-
-
-//MinMax
-    {
-    openMPMinMax();
-//    Device::memcpyHToD(tabGMMinMax, tabMinMaxOmp, sizeof(uchar) * 2);
-//    size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
-//    kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
-//    uchar *minMax = new uchar[2];
-//    Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
-    }
-
-//Amplification
-    {
-    amplificationOpenMP();
-//    dim3 dg = dim3(48, 1, 1);
-//    dim3 db = dim3(576, 1, 1);
-//kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
-}
-
-    // Copy the final output to ptrDevPixel
-    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
     Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
 
     //ptrDevPixels= tabImageConvolutionOutput;

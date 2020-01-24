@@ -49,8 +49,8 @@ class Convolution: public Animable_I<uchar>
 	uint radius;
 	int kernelSize;
 	float* tabKernelConvolution;
-	bool grayOnDevice;
-	bool convolutionOnDevice;
+	bool onDevice;
+
 
 	//Tools
 	uchar4* tabGMImageCouleur;
