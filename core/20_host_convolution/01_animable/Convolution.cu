@@ -30,9 +30,10 @@ extern __host__ void uploadImageAsTexture(uchar* ptrGMInput, uint w, uint h);
 extern __host__ void unloadImageTexture();
 
 //TODO Choose where to use NoyauCreator, passé depuis le provider ou directement dans cette class!
-Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, float kernel[], int kernelSize) :
+Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, float kernel[], int kernelSize, Version version) :
 	Animable_I<uchar>(grid, w, h, "Convolution_GRAY_uchar"), nameVideo(nameVideo), capture(nameVideo), matRGBA(h, w, CV_8UC1), tabKernelConvolution(kernel), kernelSize(
-		kernelSize), w(w), h(h), radius(kernelSize / 2)
+		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version)
+
     {
     assert(kernelSize % 2 == 1);
 
@@ -105,34 +106,47 @@ else
 if (convolutionOnDevice)
     {
 
-    //////Convolution v.2
-    	{
-    	dim3 dg = dim3(14, 1, 1);
-    	dim3 db = dim3(1024, 1, 1);
-    	kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, radius, tabGMKernelConvolution);
-    	//kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, radius);
-    	}
-
-    ////Convolution v.3
-    //    {
-    //    dim3 dg = dim3(14, 1, 1);
-    //    dim3 db = dim3(1024, 1, 1);
-    //    uploadImageAsTexture(tabGMImageGris, w, h);
-    //    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-    //    unloadImageTexture();
-    //    }
-
-    }
-else
-    {
-    //OpenMP Convolution
+    if (version == Version::BASIC)
         {
-        openMPConvolution();
-        Device::memclear(tabGMConvolutionOutput, sizeof(uchar) * w * h);
-        Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+        dim3 dg = dim3(14, 1, 1);
+        dim3 db = dim3(1024, 1, 1);
+        kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
+        //kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
         }
 
+    //Convolution CM
+    else if (version == Version::CM || version == Version::CM)
+        {
+        dim3 dg = dim3(14, 1, 1);
+        dim3 db = dim3(1024, 1, 1);
+        kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+
+        }
+
+    //Convolution texture
+    else if (version == Version::TEXTURE)
+        {
+        dim3 dg = dim3(14, 1, 1);
+        dim3 db = dim3(1024, 1, 1);
+        uploadImageAsTexture(tabGMImageGris, w, h);
+        kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
+        unloadImageTexture();
+        }
+
+
+}
+else
+{
+//OpenMP Convolution
+    {
+    openMPConvolution();
+    Device::memclear(tabGMConvolutionOutput, sizeof(uchar) * w * h);
+    Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
     }
+}
+
+//Convolution CM
+
 
 //MinMax
     {
@@ -149,7 +163,7 @@ else
 kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
 }
 
- // Copy the final output to ptrDevPixel
+    // Copy the final output to ptrDevPixel
 Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
 }
 
@@ -157,7 +171,7 @@ void Convolution::animationStep()
 {
 t++;
 
- //video
+    //video
 {
 Mat matBGR = capture.provideBGR();
 
@@ -207,40 +221,40 @@ const int NB_THREAD = OmpTools::setAndGetNaturalGranularity();
 int s = OmpTools::getTid();
 
 while (s < w * h)
-    {
-    int i = 0;
-    int j = 0;
-    int u = 0;
-    int v = 0;
-    cpu::IndiceTools::toIJ(s, w, &u, &v);
+{
+int i = 0;
+int j = 0;
+int u = 0;
+int v = 0;
+cpu::IndiceTools::toIJ(s, w, &u, &v);
 
-    float sum = 0;
-    int sizeLine = 2 * radius + 1;
-    while (i < sizeLine)
+float sum = 0;
+int sizeLine = 2 * radius + 1;
+while (i < sizeLine)
+    {
+    int x = (v - radius + i);
+    while (j < sizeLine)
 	{
-	int x = (v - radius + i);
-	while (j < sizeLine)
+	int y = u - radius + j;
+	if (!(x < 0 || y < 0 || x >= w || y >= h))
 	    {
-	    int y = u - radius + j;
-	    if (!(x < 0 || y < 0 || x >= w || y >= h))
-		{
-		sum += tabKernelConvolution[j * sizeLine + i] * ptrTabPixelGray[w * y + x];
-		}
-	    ++j;
+	    sum += tabKernelConvolution[j * sizeLine + i] * ptrTabPixelGray[w * y + x];
 	    }
-	++i;
-	j = 0;
+	++j;
 	}
-    if (sum < 0)
-	{
-	sum = 0;
-	}
-    else if (sum > 255)
-	{
-	sum = 255;
-	}
-    tabImageConvolutionOutput[s] = (int) sum;
-    s += NB_THREAD;
+    ++i;
+    j = 0;
     }
+if (sum < 0)
+    {
+    sum = 0;
+    }
+else if (sum > 255)
+    {
+    sum = 255;
+    }
+tabImageConvolutionOutput[s] = (int) sum;
+s += NB_THREAD;
+}
 }
 }

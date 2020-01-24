@@ -12,11 +12,20 @@ using namespace gpu;
 using cv::Mat;
 using std::string;
 
+enum Version
+    {
+    BASIC,
+    CM,
+    TEXTURE,
+    OMP,
+    FULL_LOAD,
+    PROD_CONS,
+    };
 
 class Convolution: public Animable_I<uchar>
     {
     public:
-	Convolution(const Grid& grid, uint w, uint h, string videoName, float kernel[], int kernelSize);
+	Convolution(const Grid& grid, uint w, uint h, string videoName, float kernel[], int kernelSize, Version version);
 	virtual ~Convolution(void);
 
 	/*-------------------------*\
@@ -67,5 +76,10 @@ class Convolution: public Animable_I<uchar>
 	uchar* ptrTabPixelGray;
 
 	//Output
+
 	uchar* tabImageConvolutionOutput;
+
+
+	Version version;
+
     };
