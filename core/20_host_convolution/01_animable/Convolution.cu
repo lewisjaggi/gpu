@@ -30,9 +30,9 @@ extern __host__ void uploadImageAsTexture(uchar* ptrGMInput, uint w, uint h);
 extern __host__ void unloadImageTexture();
 
 //TODO Choose where to use NoyauCreator, passé depuis le provider ou directement dans cette class!
-Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, float kernel[], int kernelSize) :
+Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, float kernel[], int kernelSize, Version version) :
 	Animable_I<uchar>(grid, w, h, "Convolution_GRAY_uchar"), nameVideo(nameVideo), capture(nameVideo), matRGBA(h, w, CV_8UC1), tabKernelConvolution(kernel), kernelSize(
-		kernelSize), w(w), h(h)
+		kernelSize), w(w), h(h), version(version)
     {
     assert(kernelSize % 2 == 1);
 
@@ -99,22 +99,32 @@ else
     ptrTabPixelVideoToGray();
     }
 
-//////Convolution v.2
-//	{
-//	dim3 dg = dim3(14, 1, 1);
-//	dim3 db = dim3(1024, 1, 1);
-//	kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
-//	//kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
-//	}
+    //Convolution CM
+    if (version == Version::BASIC)
+	{
+	dim3 dg = dim3(14, 1, 1);
+	dim3 db = dim3(1024, 1, 1);
+	kernelConvolutionV2<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, 4, tabGMKernelConvolution);
+	//kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
+	}
 
-////Convolution v.3
+    //Convolution CM
+    else if (version == Version::CM || version == Version::CM)
     {
     dim3 dg = dim3(14, 1, 1);
     dim3 db = dim3(1024, 1, 1);
-    uploadImageAsTexture(tabGMImageGris, w, h);
-    kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-    unloadImageTexture();
+    kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
     }
+
+    //Convolution texture
+    else if (version == Version::TEXTURE)
+	{
+	dim3 dg = dim3(14, 1, 1);
+	dim3 db = dim3(1024, 1, 1);
+	uploadImageAsTexture(tabGMImageGris, w, h);
+	kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
+	unloadImageTexture();
+	}
 
 //MinMax
     {
