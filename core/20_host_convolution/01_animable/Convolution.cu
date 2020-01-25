@@ -41,7 +41,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     assert(kernelSize % 2 == 1);
 
     //Paramètres
-    this->onDevice = false;
+    this->onDevice = true;
     this->kernelSize = 9;
 
     int nbPixels = w * h;
@@ -88,6 +88,8 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
     //Gris
     if (onDevice)
 	{
+	 dim3 dg = dim3(48, 1, 1);
+	 dim3 db = dim3(704, 1, 1);
 	Device::memcpyHToD(tabGMImageCouleur, ptrTabPixelVideo, sizeImage);
     kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
 
@@ -100,10 +102,10 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             }
 
         //Convolution CM
-        else if (version == Version::CM || version == Version::FULL_LOAD)
+        else if (version == Version::CM || version == Version::FULL_LOAD || version == Version::PROD_CONS)
             {
-            dim3 dg = dim3(14, 1, 1);
-            dim3 db = dim3(1024, 1, 1);
+            dim3 dg = dim3(48, 1, 1);
+            dim3 db = dim3(288, 1, 1);
             kernelConvolutionCM<<<dg,db>>>(tabGMImageGris, tabGMConvolutionOutput, w, h, kernelSize/2);
 
             }
@@ -120,7 +122,8 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
 
     //MinMax
         {
-
+        dim3 dg = dim3(48, 1, 1);
+        dim3 db = dim3(512, 1, 1);
         size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
         kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
         uchar *minMax = new uchar[2];

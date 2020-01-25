@@ -6,11 +6,13 @@
 #include "cudaTools.h"
 #include "CVCaptureVideo.h"
 #include "Version.h"
+#include "MyRunnable.h"
 
 
 
 using cv::Mat;
 using std::string;
+
 
 
 #define Fifo boost::lockfree::spsc_queue<uchar4*, boost::lockfree::capacity<1024> >

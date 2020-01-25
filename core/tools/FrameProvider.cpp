@@ -7,10 +7,12 @@
 #include <thread>
 #include <chrono>
 #include "Device.h"
+#include <boost/thread.hpp>
 
 
 
-using std::ref;
+using boost::thread;
+using boost::ref;
 
 
 using std::cout;
@@ -46,7 +48,7 @@ FrameProvider::FrameProvider(uint w, uint h, string nameVideo, Version version) 
 	if (version == Version::PROD_CONS)
 	    {
 
-	     runnable =  MyRunnable(&fifo, this);
+
 
 	    //thread threadRunnable1(runnable, &fifo, this);
 //	    #pragma omp parallel
@@ -117,6 +119,9 @@ uchar4* FrameProvider::getFrame()
 
 void FrameProvider::start()
     {
+    runnable =  MyRunnable();
+    runnable.init(&fifo, this);
     std::thread threadRunnable1(&MyRunnable::run, &runnable);
+    threadRunnable1.detach();
     }
 

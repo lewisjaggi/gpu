@@ -1,6 +1,6 @@
 #include <iostream>
 #include "MyRunnable.h"
-
+#include "FrameProvider.h"
 
 using std::cout;
 using std::endl;
@@ -10,10 +10,9 @@ using std::to_string;
 /*----------------------------------------------------------------------*\
  |*			Declaration 					*|
  \*---------------------------------------------------------------------*/
-MyRunnable::MyRunnable(Fifo* fifo, FrameProvider* frameProvider)
+MyRunnable::MyRunnable()
     {
-    this->fifo = fifo;
-    this->frameProvider = frameProvider;
+
     }
 MyRunnable::~MyRunnable()
     {
@@ -35,12 +34,15 @@ MyRunnable::~MyRunnable()
 /*--------------------------------------*\
  |*		Public			*|
  \*-------------------------------------*/
+void MyRunnable::init(Fifo* fifo, FrameProvider* frameProvider)
+    {
+    this->fifo = fifo;
+    this->frameProvider = frameProvider;
+    }
 void MyRunnable::run(void)
     {
-    cout<< "run" << endl;
     while(true)
  	{
-	cout<< "run while"<< endl;
  	uchar4* newFrame = frameProvider->loadFrame();
  	fifo->push(newFrame);
  	}
