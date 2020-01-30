@@ -28,7 +28,7 @@ extern __global__ void kernelMinMax(uchar* tabGMConvolutionOutput, uchar* tabGMM
 extern __global__ void kernelAmplification(uchar* tabGMConvolutionOutput, uchar* tabGMIntervalle, int w, int h);
 
 extern __host__ void uploadKernelConvolutionToCM(float* ptrKernelConvolution, int kernelSize);
-extern __host__ void uploadImageAsTexture(uchar* ptrGMInput, uint w, uint h);
+extern __host__ void uploadImageAsTexture(uchar* ptrGMInput, uint w, uint h, cudaArray* dArray);
 extern __host__ void unloadImageTexture();
 
 //TODO Choose where to use NoyauCreator, passé depuis le provider ou directement dans cette class!
@@ -50,6 +50,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     Device::malloc(&tabGMMinMax, 2 * sizeof(uchar));
     Device::malloc(&tabGMImageGris, nbPixels * sizeof(uchar));
     Device::malloc(&tabGMImageCouleur, nbPixels * sizeof(uchar4));
+    Device::malloc(&tabGMImageCouleurNext, nbPixels * sizeof(uchar4));
     Device::malloc(&tabGMConvolutionOutput, nbPixels * sizeof(uchar));
     Device::malloc(&tabGMKernelConvolution, nbPixelConvolution * sizeof(float));
 
@@ -65,8 +66,17 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     tabImageConvolutionOutput = new uchar[sizeImage];
     tabMinMaxOmp = new uchar[2];
 
+    //stream
+    HANDLE_ERROR(cudaStreamCreate(&streamImage));
+
     //video
     this->ptrTabPixelVideo = frameProvider.getFrame();
+    HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));
+    
+    //cuda Array
+    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar>();
+    cudaMallocArray(&dArray, &channelDesc, w, h);
+
     }
 
 Convolution::~Convolution()
@@ -77,6 +87,8 @@ Convolution::~Convolution()
     Device::free(&tabGMImageCouleur);
     Device::free(&tabGMConvolutionOutput);
     Device::free(&tabGMKernelConvolution);
+    cudaFreeArray (dArray);
+    HANDLE_ERROR(cudaStreamDestroy(streamImage));
     }
 
 /*-------------------------*\
@@ -90,8 +102,26 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
 	{
 	 dim3 dg = dim3(48, 1, 1);
 	 dim3 db = dim3(704, 1, 1);
-	Device::memcpyHToD(tabGMImageCouleur, ptrTabPixelVideo, sizeImage);
-    kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
+	//Device::memcpyHToD(tabGMImageCouleur, ptrTabPixelVideo, sizeImage);
+	//cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage);
+	 if(useImage1)
+	     {
+	     HANDLE_ERROR (cudaStreamSynchronize(streamImage));
+	     kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
+	     this->ptrTabNextPixelVideo = frameProvider.getFrame();
+	     HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleurNext, ptrTabNextPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));
+	     
+	     }
+	 else
+	     {
+	     HANDLE_ERROR (cudaStreamSynchronize(streamImage));
+	     kernelGris<<<dg,db>>>(tabGMImageCouleurNext, tabGMImageGris, w, h);
+	     this->ptrTabPixelVideo = frameProvider.getFrame();
+	     HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));
+	     
+	     }
+	 useImage1 = !useImage1;
+    //kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
 
     if (version == Version::BASIC)
             {
@@ -102,7 +132,7 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             }
 
         //Convolution CM
-        else if (version == Version::CM || version == Version::FULL_LOAD || version == Version::PROD_CONS)
+        else if (version == Version::CM || version == Version::FULL_LOAD || version == Version::PROD_CONS )
             {
             dim3 dg = dim3(48, 1, 1);
             dim3 db = dim3(288, 1, 1);
@@ -111,13 +141,17 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             }
 
         //Convolution texture
-        else if (version == Version::TEXTURE)
+        else if (version == Version::TEXTURE )
             {
-            dim3 dg = dim3(14, 1, 1);
-            dim3 db = dim3(1024, 1, 1);
-            uploadImageAsTexture(tabGMImageGris, w, h);
+            dim3 dg = dim3(48, 1, 1);
+            dim3 db = dim3(512, 1, 1);
+
+            uploadImageAsTexture(tabGMImageGris, w, h, dArray);
+            //cudaMemcpyToArray(dArray, 0, 0, tabGMImageGris, w * h * sizeof(uchar), cudaMemcpyHostToDevice);
+
             kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
             unloadImageTexture();
+
             }
 
     //MinMax
@@ -126,15 +160,15 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
         dim3 db = dim3(512, 1, 1);
         size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
         kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
-        uchar *minMax = new uchar[2];
-        Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
+        //uchar *minMax = new uchar[2];
+        //Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
         }
         //Amplification
             {
             dim3 dg = dim3(48, 1, 1);
             dim3 db = dim3(576, 1, 1);
         kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
-        }
+            }
 
     }
 else
@@ -162,17 +196,16 @@ else
                 Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
     }
     Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
-
     //ptrDevPixels= tabImageConvolutionOutput;
 }
 
 void Convolution::animationStep()
 {
-t++;
-
+    t++;
     //video
     {
-    this->ptrTabPixelVideo = frameProvider.getFrame();
+
+
     }
 }
 

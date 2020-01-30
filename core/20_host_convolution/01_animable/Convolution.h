@@ -44,6 +44,7 @@ class Convolution: public Animable_I<uchar>
 	 \*-------------------------------------*/
 
     private:
+	bool useImage1=true;
 	uint w;
 	uint h;
 	uint radius;
@@ -51,9 +52,12 @@ class Convolution: public Animable_I<uchar>
 	float* tabKernelConvolution;
 	bool onDevice;
 
+	cudaStream_t streamImage;
+
 
 	//Tools
 	uchar4* tabGMImageCouleur;
+	uchar4* tabGMImageCouleurNext;
 	uchar* tabGMImageGris;
 
 	uchar* tabGMMinMax;
@@ -63,12 +67,16 @@ class Convolution: public Animable_I<uchar>
 
 	size_t sizeImage;
 	uchar4* ptrTabPixelVideo;
+	uchar4* ptrTabNextPixelVideo;
 	uchar* ptrTabPixelGray;
+	cudaArray* dArray;
 
 	//Output
 
 	uchar* tabImageConvolutionOutput;
 	uchar* tabMinMaxOmp;
+
+	size_t sizeSM0=0;
 
 	Version version;
 

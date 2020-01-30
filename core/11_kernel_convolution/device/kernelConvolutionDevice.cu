@@ -23,6 +23,8 @@ __constant__ float KERNEL_CONVOLUTION_CM[KERNEL_CONVOLUTION_SIZE_MAX * KERNEL_CO
 
 texture<uchar, 2, cudaReadModeElementType> textureRef;
 
+
+
 /*--------------------------------------*\
  |*		Public			*|
  \*-------------------------------------*/
@@ -32,7 +34,7 @@ __global__ void kernelConvolutionV2(uchar* tabGMInput, uchar* tabGMOutput, int w
 __global__ void kernelConvolutionCM(uchar* tabGMInput, uchar* tabGMOutput, int w, int h, int radius);
 __global__ void kernelConvolutionTexture(uchar* tabGMOutput, uint w, uint h, int kernelSize);
 
-__host__ void uploadImageAsTexture(uchar* tabGMImage, uint w, uint h);
+__host__ void uploadImageAsTexture(uchar* tabGMImage, uint w, uint h, cudaArray* dArray);
 __host__ void unloadImageTexture();
 
 __host__ void uploadKernelConvolutionToCM(float* ptrKernelConvolution, int kernelSize);
@@ -62,17 +64,21 @@ __host__ void uploadKernelConvolutionToCM(float* ptrKernelConvolution, int kerne
     HANDLE_ERROR(cudaMemcpyToSymbol(KERNEL_CONVOLUTION_CM, ptrKernelConvolution, sizeof(float) * kernelSize * kernelSize, offset, cudaMemcpyHostToDevice));
     }
 
-__host__ void uploadImageAsTexture(uchar* tabGMImage, uint w, uint h)
+__host__ void uploadImageAsTexture(uchar* tabGMImage, uint w, uint h, cudaArray* dArray)
     {
     //Configuration texture, valeurs par defaut !
-    textureRef.addressMode[0] = cudaAddressModeClamp;    //par defaut
-    textureRef.addressMode[1] = cudaAddressModeClamp;    //par defaut
-    textureRef.filterMode = cudaFilterModePoint;    //par defaut
-    textureRef.normalized = false;    //coordonnée texture //par defaut
-    size_t pitch = w * sizeof(uchar);    //size ligne
-    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<uchar>();
+    //textureRef.addressMode[0] = cudaAddressModeClamp;    //par defaut
+    //textureRef.addressMode[1] = cudaAddressModeClamp;    //par defaut
+    //textureRef.filterMode = cudaFilterModePoint;    //par defaut
+    //textureRef.normalized = false;    //coordonnée texture //par defaut
+    //size_t pitch = w * sizeof(uchar);    //size ligne
 
-    HANDLE_ERROR(cudaBindTexture2D(NULL, textureRef, tabGMImage, channelDesc, w, h, pitch));
+    cudaMemcpyToArray(dArray, 0, 0, tabGMImage, w * h * sizeof(uchar), cudaMemcpyHostToDevice);
+    //cudaMemcpy2DToArray(dArray, 0, 0, tabGMImage, w * h * sizeof(uchar), w * sizeof(uchar), h * sizeof(uchar), cudaMemcpyHostToDevice);
+
+    HANDLE_ERROR(cudaBindTextureToArray (textureRef, dArray));
+
+    //HANDLE_ERROR(cudaBindTexture2D(NULL, textureRef, tabGMImage, channelDesc, w, h, pitch));
     }
 
 __host__ void unloadImageTexture()
