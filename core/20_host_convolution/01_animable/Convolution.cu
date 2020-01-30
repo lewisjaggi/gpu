@@ -44,7 +44,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     assert(kernelSize % 2 == 1);
 
     //Paramètres
-    this->onDevice = true;
+    this->onDevice = false;
     this->kernelSize = 9;
 
     int nbPixels = w * h;
@@ -129,8 +129,8 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
         dim3 db = dim3(512, 1, 1);
         size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
         kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
-        uchar *minMax = new uchar[2];
-        Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
+        //uchar *minMax = new uchar[2];
+        //Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
         }
         //Amplification
             {
@@ -138,6 +138,7 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             dim3 db = dim3(576, 1, 1);
         kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
         }
+            Device::memcpyDToD(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
     }
 else
     {
@@ -146,11 +147,6 @@ else
         {
         openMPConvolution();
         }
-
-    //OpenMP Convolution
-	{
-	openMPConvolution();
-	}
 	//MinMax
 	{
 	openMPMinMax();
@@ -161,9 +157,10 @@ else
 	}
 
                 // Copy the final output to ptrDevPixel
-                Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+                Device::memcpyHToD(ptrDevPixels, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+
     }
-    Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
+
 
     //ptrDevPixels= tabImageConvolutionOutput;
 }
