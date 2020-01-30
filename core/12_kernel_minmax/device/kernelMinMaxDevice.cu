@@ -21,6 +21,7 @@ __global__ void kernelMinMax(uchar* tabGM, uchar* ptrDevResult, int w, int h);
  \*-------------------------------------*/
 
 __device__ void reductionIntraThread(uchar* tabGM, uchar* tabSMMin, uchar* tabSMMax, int w, int h);
+__device__ void reductionIntraThreadIf(uchar* tabGM, uchar* tabSMMin, uchar* tabSMMax, int w, int h);
 
 /*----------------------------------------------------------------------*\
  |*			Implementation 					*|
@@ -78,6 +79,34 @@ __device__ void reductionIntraThread(uchar* tabGM, uchar* tabSMMin, uchar* tabSM
 	bool greater = tabGM[s] > tabSMMax[TID];
 	tabSMMax[TID] = tabGM[s]*(int)greater + tabSMMax[TID]*((int)(!greater));
 
+	s += NB_THREADS;
+	}
+    }
+
+
+__device__ void reductionIntraThreadIf(uchar* tabGM, uchar* tabSMMin, uchar* tabSMMax, int w, int h)
+    {
+    const int NB_THREADS = Indice2D::nbThreadLocal();
+    const int TID = Indice2D::tidLocal();
+    const int limit = w * h;
+
+    int s = TID;
+
+    tabSMMin[TID] = tabGM[s];
+    tabSMMax[TID] = tabGM[s];
+    s += NB_THREADS;
+
+    while (s < limit)
+	{
+	if(tabGM[s] < tabSMMin[TID])
+	    {
+	    tabSMMin[TID] = tabGM[s];
+	    }
+
+	if(tabGM[s] > tabSMMax[TID])
+	    {
+	    tabSMMax[TID] = tabGM[s];
+	    }
 	s += NB_THREADS;
 	}
     }
