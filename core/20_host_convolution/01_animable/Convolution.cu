@@ -37,7 +37,10 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
 		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version), frameProvider(w, h, nameVideo, version)
 
     {
-    frameProvider.start();
+    if (version == Version::PROD_CONS)
+	{
+	frameProvider.start();
+	}
     assert(kernelSize % 2 == 1);
 
     //Paramètres
@@ -57,6 +60,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     // load kernelConvolution
     Device::memcpyHToD(tabGMKernelConvolution, tabKernelConvolution, nbPixelConvolution * sizeof(float));
     uploadKernelConvolutionToCM(tabKernelConvolution, kernelSize);
+    //uploadImageAsTexture(tabGMImageGris, w, h);
 
     // Tools
     this->t = 0; // protected dans Animable
@@ -89,6 +93,7 @@ Convolution::~Convolution()
     Device::free(&tabGMKernelConvolution);
     cudaFreeArray (dArray);
     HANDLE_ERROR(cudaStreamDestroy(streamImage));
+    unloadImageTexture();
     }
 
 /*-------------------------*\
@@ -103,22 +108,22 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
 	 dim3 dg = dim3(48, 1, 1);
 	 dim3 db = dim3(704, 1, 1);
 	//Device::memcpyHToD(tabGMImageCouleur, ptrTabPixelVideo, sizeImage);
+	//kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
 	//cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage);
+	
 	 if(useImage1)
 	     {
 	     HANDLE_ERROR (cudaStreamSynchronize(streamImage));
 	     kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
 	     this->ptrTabNextPixelVideo = frameProvider.getFrame();
 	     HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleurNext, ptrTabNextPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));
-	     
 	     }
 	 else
 	     {
 	     HANDLE_ERROR (cudaStreamSynchronize(streamImage));
 	     kernelGris<<<dg,db>>>(tabGMImageCouleurNext, tabGMImageGris, w, h);
 	     this->ptrTabPixelVideo = frameProvider.getFrame();
-	     HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));
-	     
+	     HANDLE_ERROR (cudaMemcpyAsync(tabGMImageCouleur, ptrTabPixelVideo, sizeImage, cudaMemcpyHostToDevice, streamImage));	     
 	     }
 	 useImage1 = !useImage1;
     //kernelGris<<<dg,db>>>(tabGMImageCouleur, tabGMImageGris, w, h);
@@ -151,14 +156,13 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
 
             kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
             unloadImageTexture();
-
             }
 
     //MinMax
         {
         dim3 dg = dim3(48, 1, 1);
         dim3 db = dim3(512, 1, 1);
-        size_t sizeSMMinMax = 2 * Device::nbThread(dg, db) * sizeof(uchar);
+        size_t sizeSMMinMax = 2 * db.x * sizeof(uchar);
         kernelMinMax<<<dg, db, sizeSMMinMax>>>(tabGMConvolutionOutput, tabGMMinMax, w , h);
         //uchar *minMax = new uchar[2];
         //Device::memcpyDToH(minMax, tabGMMinMax, sizeof(uchar) * 2);
@@ -169,7 +173,8 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             dim3 db = dim3(576, 1, 1);
         kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
             }
-
+        
+            Device::memcpyDToD(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
     }
 else
     {
@@ -178,11 +183,6 @@ else
         {
         openMPConvolution();
         }
-
-    //OpenMP Convolution
-	{
-	openMPConvolution();
-	}
 	//MinMax
 	{
 	openMPMinMax();
@@ -192,10 +192,10 @@ else
 	amplificationOpenMP();
 	}
 
-                // Copy the final output to ptrDevPixel
-                Device::memcpyHToD(tabGMConvolutionOutput, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+    // Copy the final output to ptrDevPixel
+    Device::memcpyHToD(ptrDevPixels, tabImageConvolutionOutput, sizeof(uchar) * w * h);
+
     }
-    Device::memcpyDToH(ptrDevPixels, tabGMConvolutionOutput, sizeof(uchar) * w * h);
     //ptrDevPixels= tabImageConvolutionOutput;
 }
 
@@ -204,8 +204,11 @@ void Convolution::animationStep()
     t++;
     //video
     {
-
-
+    if (version != Version::FULL_LOAD)
+	{
+	//free(ptrTabPixelVideo);
+	}
+    //this->ptrTabPixelVideo = frameProvider.getFrame();
     }
 }
 
