@@ -37,7 +37,10 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
 		kernelSize), w(w), h(h), radius(kernelSize / 2), version(version), frameProvider(w, h, nameVideo, version)
 
     {
-    frameProvider.start();
+    if (version == Version::PROD_CONS)
+	{
+	frameProvider.start();
+	}
     assert(kernelSize % 2 == 1);
 
     //Paramètres
@@ -135,7 +138,6 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             dim3 db = dim3(576, 1, 1);
         kernelAmplification<<<dg, db>>>(tabGMConvolutionOutput, tabGMMinMax, w, h);
         }
-
     }
 else
     {
@@ -172,6 +174,10 @@ t++;
 
     //video
     {
+    if (version != Version::FULL_LOAD)
+	{
+	free(ptrTabPixelVideo);
+	}
     this->ptrTabPixelVideo = frameProvider.getFrame();
     }
 }
