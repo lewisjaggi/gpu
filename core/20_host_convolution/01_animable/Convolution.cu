@@ -44,7 +44,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     assert(kernelSize % 2 == 1);
 
     //Paramètres
-    this->onDevice = false;
+    this->onDevice = true;
     this->kernelSize = 9;
 
     int nbPixels = w * h;
@@ -59,6 +59,7 @@ Convolution::Convolution(const Grid &grid, uint w, uint h, string nameVideo, flo
     // load kernelConvolution
     Device::memcpyHToD(tabGMKernelConvolution, tabKernelConvolution, nbPixelConvolution * sizeof(float));
     uploadKernelConvolutionToCM(tabKernelConvolution, kernelSize);
+    uploadImageAsTexture(tabGMImageGris, w, h);
 
     // Tools
     this->t = 0; // protected dans Animable
@@ -80,6 +81,7 @@ Convolution::~Convolution()
     Device::free(&tabGMImageCouleur);
     Device::free(&tabGMConvolutionOutput);
     Device::free(&tabGMKernelConvolution);
+    unloadImageTexture();
     }
 
 /*-------------------------*\
@@ -118,9 +120,7 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             {
             dim3 dg = dim3(14, 1, 1);
             dim3 db = dim3(1024, 1, 1);
-            uploadImageAsTexture(tabGMImageGris, w, h);
             kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
-            unloadImageTexture();
             }
 
     //MinMax
