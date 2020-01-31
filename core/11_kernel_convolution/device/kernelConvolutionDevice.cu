@@ -221,12 +221,12 @@ __global__ void kernelConvolutionCM(uchar* tabGMInput, uchar* tabGMOutput, int w
 
 __device__ void reductionIntraThreadConvolution(uchar* tabGMOutput, uint w, uint h, int kernel_size, float* tabCMKernel)
     {
-    const int NB_THREADS = Indice2D::nbThreadLocal();
+    const int NB_THREADS = Indice2D::nbThread();
 
-    const int TID = Indice2D::tidLocal();
+    //const int TID = Indice2D::tid();
     const int limit = w * h;
 
-    int s = TID; // Pixel to manage
+    int s = Indice2D::tid(); // Pixel to manage
     const int k = kernel_size;
     const int ss = k*(k/2.);// Center of kernel
 
@@ -241,24 +241,32 @@ __device__ void reductionIntraThreadConvolution(uchar* tabGMOutput, uint w, uint
 	    {
 	    for(int u=1;u<=k/2;++u)
 		{
-		sum += tabCMKernel[ss + v*k + u] * (int)tex2D(textureRef, j + u, i+v);
-		sum += tabCMKernel[ss + v*k - u] * (int)tex2D(textureRef, j - u, i+v);
-		sum += tabCMKernel[ss - v*k + u] * (int)tex2D(textureRef, j + u, i-v);
-		sum += tabCMKernel[ss - v*k - u] * (int)tex2D(textureRef, j - u, i-v);
+		sum += tabCMKernel[ss + v*k + u] * tex2D(textureRef, j + u, i+v) + tabCMKernel[ss + v*k + u] * tex2D(textureRef, j + u, i+v) + tabCMKernel[ss - v*k + u] * tex2D(textureRef, j + u, i-v) + tabCMKernel[ss - v*k - u] * tex2D(textureRef, j - u, i-v);
+//		sum += tabCMKernel[ss + v*k + u] * tex2D(textureRef, j + u, i+v);
+//		sum += tabCMKernel[ss + v*k - u] * tex2D(textureRef, j - u, i+v);
+//		sum += tabCMKernel[ss - v*k + u] * tex2D(textureRef, j + u, i-v);
+//		sum += tabCMKernel[ss - v*k - u] * tex2D(textureRef, j - u, i-v);
 		}
-	    sum += tabCMKernel[ss + v] * (int)tex2D(textureRef, j+v, i);
-	    sum += tabCMKernel[ss - v] * (int)tex2D(textureRef, j-v, i);
+	    sum += tabCMKernel[ss + v] * tex2D(textureRef, j+v, i) + tabCMKernel[ss - v] * tex2D(textureRef, j-v, i) + tabCMKernel[ss + v*k] * tex2D(textureRef, j, i+v) + tabCMKernel[ss - v*k] * tex2D(textureRef, j, i-v);
+//	    sum += tabCMKernel[ss + v] * tex2D(textureRef, j+v, i);
+//	    sum += tabCMKernel[ss - v] * tex2D(textureRef, j-v, i);
 
-	    sum += tabCMKernel[ss + v*k] * (int)tex2D(textureRef, j, i+v);
-	    sum += tabCMKernel[ss - v*k] * (int)tex2D(textureRef, j, i-v);
+//	    sum += tabCMKernel[ss + v*k] * tex2D(textureRef, j, i+v);
+//	    sum += tabCMKernel[ss - v*k] * tex2D(textureRef, j, i-v);
 	    }
 
-	sum += tabCMKernel[ss] * (int)tex2D(textureRef, j, i);
+	sum += tabCMKernel[ss] * tex2D(textureRef, j, i);
 
-	if(sum < 0)
-	    sum = 0;
-	if(sum > 255)
-	    sum = 255;
+//	if(sum < 0)
+//	    sum = 0;
+//	else if(sum > 255)
+//	    sum = 255;
+
+	bool smaller = sum < 0;
+	sum = sum *((int)(!smaller));
+
+	bool greater = sum > 255;
+	sum = 255 *(int)greater + sum * ((int)(!greater));
 
 	tabGMOutput[s] = sum;
 

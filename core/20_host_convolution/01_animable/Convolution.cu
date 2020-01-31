@@ -11,6 +11,7 @@
 #include "Device.h"
 #include "Interval_CPU.h"
 #include "Calibreur_CPU.h"
+#include "Chrono.h"
 
 using std::cout;
 using std::cerr;
@@ -137,7 +138,7 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             }
 
         //Convolution CM
-        else if (version == Version::CM || version == Version::FULL_LOAD || version == Version::PROD_CONS )
+        else if (version == Version::CM )
             {
             dim3 dg = dim3(48, 1, 1);
             dim3 db = dim3(288, 1, 1);
@@ -146,14 +147,13 @@ void Convolution::process(uchar *ptrDevPixels, uint w, uint h, const DomaineMath
             }
 
         //Convolution texture
-        else if (version == Version::TEXTURE )
+        else if (version == Version::TEXTURE || version == Version::PROD_CONS  || version == Version::FULL_LOAD  )
             {
             dim3 dg = dim3(48, 1, 1);
             dim3 db = dim3(512, 1, 1);
 
             uploadImageAsTexture(tabGMImageGris, w, h, dArray);
             //cudaMemcpyToArray(dArray, 0, 0, tabGMImageGris, w * h * sizeof(uchar), cudaMemcpyHostToDevice);
-
             kernelConvolutionTexture<<<dg,db>>>(tabGMConvolutionOutput, w, h, kernelSize);
             unloadImageTexture();
             }

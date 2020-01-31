@@ -61,12 +61,12 @@ __global__ void kernelAmplification(uchar *tabGM, uchar *tabGMIntervalle, int w,
     int s = TID;
     while (s < WH)
 	{
-	if (min == max)
-	    tabGM[s] = (uchar)127;
-	else
-	    {
+//	if (min == max)
+//	    tabGM[s] = (uchar)127;
+//	else
+//	    {
 	    calibreur.calibrer(&tabGM[s]);
-	    }
+//	    }
 	s += NB_THREAD;
 	}
 

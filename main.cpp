@@ -61,7 +61,7 @@ int main(int argc, char** argv)
     //WARNING Pour lancer les tests du noyau de convolution, il faut modifier
     // la constante KERNEL_CONVOLUTION_SIZE dans le fichier kernelConvolutionDevice
 
-    LaunchMode launchMode = LaunchMode::IMAGE; // IMAGE  ANIMABLE  BARIVOX FORCEBRUT
+    LaunchMode launchMode = LaunchMode::ANIMABLE; // IMAGE  ANIMABLE  BARIVOX FORCEBRUT
 
     //DEVICE_ID is store 2 times but we haven't found any other option
     Settings settings(launchMode, DEVICE_ID, argc, argv);
